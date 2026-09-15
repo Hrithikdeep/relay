@@ -1,0 +1,356 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum JobStatus {
+  PENDING
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  FAILED
+  CANCELLED
+
+  @@map("job_status")
+}
+
+enum ExecutionLogStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  TIMEOUT
+  RETRIED
+
+  @@map("execution_log_status")
+}
+
+enum WorkerStatus {
+  ONLINE
+  IDLE
+  BUSY
+  OFFLINE
+
+  @@map("worker_status")
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String?
+  slug      String   @unique
+
+  timezone              String @default("UTC") @map("timezone")
+  defaultMaxAttempts    Int    @default(3) @map("default_max_attempts")
+  defaultBackoffMs      Int    @default(600) @map("default_backoff_ms")
+  defaultTimeoutSeconds Int    @default(45) @map("default_timeout_seconds")
+
+  aiJobClassificationEnabled  Boolean @default(true) @map("ai_job_classification_enabled")
+  aiErrorAnalysisEnabled      Boolean @default(true) @map("ai_error_analysis_enabled")
+  aiPredictiveMonitoringEnabled Boolean @default(true) @map("ai_predictive_monitoring_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  queues          Queue[]
+  workers         Worker[]
+  webhooks        Webhook[]
+  aiErrorPatterns AiErrorPattern[]
+  apiKeys         ApiKey[]
+  conversations   Conversation[]
+  workflows       Workflow[]
+
+  @@map("workspaces")
+}
+
+model ApiKey {
+  id           String    @id @default(cuid())
+  workspaceId  String    @map("workspace_id")
+  name         String
+  keyPrefix    String    @map("key_prefix")
+  keyHash      String    @map("key_hash")
+  permissions  String[]
+  lastUsedAt   DateTime? @map("last_used_at")
+  requestCount Int       @default(0) @map("request_count")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  revokedAt    DateTime? @map("revoked_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("api_keys")
+}
+
+model Queue {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  description String?
+  concurrency Int      @default(1)
+  isPaused    Boolean  @default(false) @map("is_paused")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  jobs            Job[]
+  aiErrorPatterns AiErrorPattern[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("queues")
+}
+
+model Job {
+  id               String    @id @default(cuid())
+  queueId          String    @map("queue_id")
+  workerId         String?   @map("worker_id")
+  name             String
+  payload          Json
+  status           JobStatus @default(PENDING)
+  priority         Int       @default(0)
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(3) @map("max_attempts")
+  result           Json?
+  error            String?
+  aiClassification Json?     @map("ai_classification")
+  scheduledAt      DateTime? @map("scheduled_at")
+  startedAt        DateTime? @map("started_at")
+  completedAt      DateTime? @map("completed_at")
+  failedAt         DateTime? @map("failed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  queue           Queue             @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  worker          Worker?           @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  executionLogs   JobExecutionLog[]
+  predictions     JobPrediction[]
+  workflowStepRun WorkflowStepRun?
+
+  @@index([queueId])
+  @@index([workerId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("jobs")
+}
+
+model JobExecutionLog {
+  id         String             @id @default(cuid())
+  jobId      String             @map("job_id")
+  workerId   String?            @map("worker_id")
+  attempt    Int
+  status     ExecutionLogStatus
+  message    String?
+  stackTrace String?            @map("stack_trace")
+  durationMs Int?               @map("duration_ms")
+  startedAt  DateTime           @map("started_at")
+  finishedAt DateTime?          @map("finished_at")
+  createdAt  DateTime           @default(now()) @map("created_at")
+
+  job    Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  worker Worker? @relation(fields: [workerId], references: [id], onDelete: SetNull)
+
+  @@index([jobId])
+  @@index([workerId])
+  @@map("job_execution_logs")
+}
+
+model Worker {
+  id              String       @id @default(cuid())
+  workspaceId     String       @map("workspace_id")
+  name            String
+  hostname        String?
+  status          WorkerStatus @default(OFFLINE)
+  concurrency     Int          @default(1)
+  version         String?
+  lastHeartbeatAt DateTime?    @map("last_heartbeat_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  jobs          Job[]
+  executionLogs JobExecutionLog[]
+
+  @@index([workspaceId])
+  @@map("workers")
+}
+
+model Webhook {
+  id              String    @id @default(cuid())
+  workspaceId     String    @map("workspace_id")
+  url             String
+  events          String[]
+  secret          String
+  isActive        Boolean   @default(true) @map("is_active")
+  lastTriggeredAt DateTime? @map("last_triggered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("webhooks")
+}
+
+model AiErrorPattern {
+  id              String   @id @default(cuid())
+  workspaceId     String   @map("workspace_id")
+  queueId         String?  @map("queue_id")
+  signature       String
+  errorType       String   @map("error_type")
+  pattern         String
+  occurrenceCount Int      @default(1) @map("occurrence_count")
+  confidence      Float
+  suggestedFix    String?  @map("suggested_fix")
+  isResolved      Boolean  @default(false) @map("is_resolved")
+  firstSeenAt     DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt      DateTime @default(now()) @map("last_seen_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  queue     Queue?    @relation(fields: [queueId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, signature])
+  @@index([workspaceId])
+  @@index([queueId])
+  @@map("ai_error_patterns")
+}
+
+enum MessageRole {
+  user
+  assistant
+  tool
+
+  @@map("message_role")
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  title       String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([workspaceId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+  role           MessageRole
+  content        String
+  toolCalls      Json?       @map("tool_calls")
+  toolResults    Json?       @map("tool_results")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+
+  @@map("workflow_run_status")
+}
+
+model Workflow {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  description String?
+  // Array of {order, queueId, name, payload?} sorted by order at creation
+  // time - array index == the WorkflowStepRun.stepIndex used to drive the
+  // engine, not the user-supplied `order` value itself.
+  steps       Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  runs      WorkflowRun[]
+
+  @@index([workspaceId])
+  @@map("workflows")
+}
+
+model WorkflowRun {
+  id               String            @id @default(cuid())
+  workflowId       String            @map("workflow_id")
+  status           WorkflowRunStatus @default(PENDING)
+  currentStepIndex Int               @default(0) @map("current_step_index")
+  startedAt        DateTime          @default(now()) @map("started_at")
+  completedAt      DateTime?         @map("completed_at")
+
+  workflow Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  steps    WorkflowStepRun[]
+
+  @@index([workflowId])
+  @@map("workflow_runs")
+}
+
+model WorkflowStepRun {
+  id            String    @id @default(cuid())
+  workflowRunId String    @map("workflow_run_id")
+  stepIndex     Int       @map("step_index")
+  jobId         String    @unique @map("job_id")
+  // Denormalized snapshot, updated only when the linked Job reaches
+  // COMPLETED/FAILED (see JobProcessor.ts) - GET endpoints also join the
+  // live Job directly for full accuracy at any point in between.
+  status        JobStatus @default(PENDING)
+  startedAt     DateTime  @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+
+  workflowRun WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+  job         Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([workflowRunId])
+  @@map("workflow_step_runs")
+}
+
+model JobPrediction {
+  id                  String   @id @default(cuid())
+  jobId               String   @map("job_id")
+  predictedDurationMs Int?     @map("predicted_duration_ms")
+  failureProbability  Float    @map("failure_probability")
+  recommendedRetries  Int?     @map("recommended_retries")
+  modelVersion        String   @map("model_version")
+  reasoning           String?
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("job_predictions")
+}
+
+// Public landing-page waitlist - deliberately not workspace-scoped (no
+// workspace exists yet for a visitor signing up) and not behind
+// authenticate, unlike every other model in this schema.
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("waitlist_entries")
+}

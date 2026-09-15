@@ -1,0 +1,16 @@
+{
+  "name": "@relay/sdk-e2e-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "tsx e2e-test.ts"
+  },
+  "dependencies": {
+    "@relay/sdk": "file:.."
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
