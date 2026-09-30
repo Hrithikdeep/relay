@@ -26,3 +26,14 @@ export function isValidPassword(submitted: string, password: string): boolean {
   const passwordBuf = Buffer.from(password);
   return submittedBuf.length === passwordBuf.length && timingSafeEqual(submittedBuf, passwordBuf);
 }
+
+// Public demo identity - the email is not a secret, so a default lives here.
+// Override with DEMO_ACCESS_EMAIL if needed.
+export const DEFAULT_DEMO_EMAIL = "demo@relay.dev";
+
+export function isValidEmail(submitted: string, expected: string = DEFAULT_DEMO_EMAIL): boolean {
+  return submitted.trim().toLowerCase() === expected.trim().toLowerCase();
+}
+
+// Where a successful login lands by default.
+export const DASHBOARD_PATH = "/dashboard";

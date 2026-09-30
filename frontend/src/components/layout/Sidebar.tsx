@@ -14,6 +14,7 @@ import {
   Webhook,
   BookOpen,
   Settings,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   type LucideIcon,
@@ -142,6 +143,19 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           </div>
         )}
       </div>
+
+      <form action="/api/logout" method="POST" className="border-t border-border">
+        <button
+          type="submit"
+          title="Log out"
+          className={`flex w-full items-center gap-2 px-4 py-3 text-sm text-muted-foreground hover:bg-card hover:text-foreground ${
+            collapsed ? 'justify-center px-0' : ''
+          }`}
+        >
+          <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+          {!collapsed && <span>Log out</span>}
+        </button>
+      </form>
 
       <button
         type="button"

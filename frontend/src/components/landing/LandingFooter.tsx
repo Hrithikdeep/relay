@@ -61,6 +61,16 @@ export function LandingFooter() {
                   Docs
                 </Link>
               </li>
+              <li>
+                <a
+                  href="https://github.com/Hrithikdeep/relay"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-foreground"
+                >
+                  GitHub
+                </a>
+              </li>
             </ul>
           </div>
         </div>

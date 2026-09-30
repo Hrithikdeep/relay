@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 export function LandingHeader() {
   return (
@@ -16,22 +17,26 @@ export function LandingHeader() {
           <a href="#how-it-works" className="hover:text-foreground">
             How it works
           </a>
-          <a href="#pricing" className="hover:text-foreground">
-            Pricing
+          <a href="#workflows" className="hover:text-foreground">
+            Workflows
           </a>
           <Link href="/docs" className="hover:text-foreground">
             Docs
           </Link>
         </nav>
 
-        {/* No login exists yet - links straight to the dashboard rather than
-            an auth flow. Revisit once accounts/auth ship. */}
-        <Link
-          href="/dashboard"
-          className="rounded-md bg-foreground px-3.5 py-1.5 text-sm font-medium text-background hover:opacity-90"
-        >
-          Open Dashboard
-        </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link href="/login" className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground">
+            Sign in
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-md bg-foreground px-3.5 py-1.5 text-sm font-medium text-background hover:opacity-90"
+          >
+            Request a demo
+          </Link>
+        </div>
       </div>
     </header>
   );
