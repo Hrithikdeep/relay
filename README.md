@@ -142,7 +142,7 @@ The hosted demo is currently gated behind a shared access credential (not per-us
 
 ```
 URL:      https://relay-xi-nine-92.vercel.app/
-Password: [demo password]
+
 ```
 
 ---
