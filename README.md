@@ -18,7 +18,7 @@
 
 Relay is an open-source background job queue for Node.js. It runs your jobs on Postgres and Redis, and when one fails, an AI layer returns the **root cause in plain English, a confidence score and a suggested fix** instead of leaving you with a 200-line stack trace. It also classifies jobs, warns you before a queue backs up, and lets you operate it by chatting.
 
-## Demo
+## Relay
 
 Try the hosted app at **[relay-xi-nine-92.vercel.app](https://relay-xi-nine-92.vercel.app/)**: sign up, get your own empty workspace, and create a queue.
 
