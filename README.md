@@ -5,7 +5,7 @@
 **Background jobs that explain their own failures.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square)](LICENSE)
-[![Live demo](https://img.shields.io/badge/live%20demo-relay--xi--nine--92.vercel.app-2563eb?style=flat-square)](https://relay-xi-nine-92.vercel.app/)
+[!relay](https://img.shields.io/badge/live%20demo-relay--xi--nine--92.vercel.app-2563eb?style=flat-square)](https://relay-xi-nine-92.vercel.app/)
 [![Node.js](https://img.shields.io/badge/Node.js-20.9%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](#getting-started)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](#tech-stack)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white)](#tech-stack)
