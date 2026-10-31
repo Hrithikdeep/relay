@@ -119,14 +119,42 @@ export async function runPredictions(workspaceId: string): Promise<Prediction[]>
   return predictions;
 }
 
-export function startPredictionScheduler(workspaceId: string): NodeJS.Timeout {
-  runPredictions(workspaceId).catch((error) => {
-    logger.error(`Prediction run failed for workspace ${workspaceId}:`, error);
+// Runs workspaces one after another (not in parallel) so a large number of
+// workspaces can't spike database load, and a failure in one doesn't stop the
+// rest. Workspaces are re-read every tick, so new sign-ups are picked up.
+async function runPredictionsForAllWorkspaces(): Promise<void> {
+  const workspaces = await prisma.workspace.findMany({
+    where: { aiPredictiveMonitoringEnabled: true },
+    select: { id: true },
   });
 
-  return setInterval(() => {
-    runPredictions(workspaceId).catch((error) => {
-      logger.error(`Prediction run failed for workspace ${workspaceId}:`, error);
-    });
-  }, PREDICTION_INTERVAL_MS);
+  for (const { id } of workspaces) {
+    try {
+      await runPredictions(id);
+    } catch (error) {
+      logger.error(`Prediction run failed for workspace ${id}:`, error);
+    }
+  }
+}
+
+export function startPredictionScheduler(): NodeJS.Timeout {
+  let running = false;
+
+  const tick = () => {
+    if (running) {
+      return;
+    }
+    running = true;
+    runPredictionsForAllWorkspaces()
+      .catch((error) => {
+        logger.error('Prediction scheduler run failed:', error);
+      })
+      .finally(() => {
+        running = false;
+      });
+  };
+
+  tick();
+
+  return setInterval(tick, PREDICTION_INTERVAL_MS);
 }

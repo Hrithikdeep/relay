@@ -1,83 +1,58 @@
-import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { CreateWorkspaceButton } from "./CreateWorkspaceButton";
+import { Logo } from "./Logo";
+import { REPO_PATH, REPO_URL } from "./links";
+
+const PRODUCT = [
+  { href: "#problem", label: "Problem" },
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "#faq", label: "FAQ" },
+];
+
+function ColumnTitle({ children }: { children: string }) {
+  return <p className="font-mono text-[11px] uppercase tracking-widest text-(--l-muted)">{children}</p>;
+}
+
+const LINK = "flex min-h-10 items-center text-left text-sm text-(--l-muted) hover:text-(--l-accent)";
 
 export function LandingFooter() {
   return (
-    <footer className="py-16">
-      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 md:flex-row md:justify-between">
-        <div className="max-w-xs">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent">
-              <Sparkles className="h-4 w-4 text-white" strokeWidth={2} />
-            </div>
-            <span className="text-sm font-semibold tracking-tight text-foreground">Relay</span>
-          </div>
-          <p className="mt-3 text-sm text-muted-foreground">Built for developers.</p>
+    <footer>
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-4 py-14 sm:px-6 sm:py-16 md:grid-cols-[2fr_1fr_1fr]">
+        <div>
+          <Logo />
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-(--l-muted)">
+            The open-source, AI-native background job queue for Node.js. Built in the open.
+          </p>
         </div>
-
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle-foreground">Product</h4>
-            <ul className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
-              <li>
-                <Link href="/dashboard" className="hover:text-foreground">
-                  Dashboard
-                </Link>
-              </li>
-              <li>
-                <Link href="/jobs" className="hover:text-foreground">
-                  Jobs
-                </Link>
-              </li>
-              <li>
-                <Link href="/queues" className="hover:text-foreground">
-                  Queues
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle-foreground">Platform</h4>
-            <ul className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
-              <li>
-                <Link href="/workflows" className="hover:text-foreground">
-                  Workflows
-                </Link>
-              </li>
-              <li>
-                <Link href="/insights" className="hover:text-foreground">
-                  AI Insights
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle-foreground">Resources</h4>
-            <ul className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
-              <li>
-                <Link href="/docs" className="hover:text-foreground">
-                  Docs
-                </Link>
-              </li>
-              <li>
-                <a
-                  href="https://github.com/Hrithikdeep/relay"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-foreground"
-                >
-                  GitHub
-                </a>
-              </li>
-            </ul>
-          </div>
+        <div className="flex flex-col gap-3">
+          <ColumnTitle>Product</ColumnTitle>
+          {PRODUCT.map((item) => (
+            <a key={item.href} href={item.href} className={LINK}>
+              {item.label}
+            </a>
+          ))}
+        </div>
+        <div className="flex flex-col gap-3">
+          <ColumnTitle>Get started</ColumnTitle>
+          <CreateWorkspaceButton className={LINK}>
+            Create your workspace
+          </CreateWorkspaceButton>
+          <a href={REPO_URL} target="_blank" rel="noreferrer" className={LINK}>
+            GitHub repository
+          </a>
+          <a href={`${REPO_URL}#readme`} target="_blank" rel="noreferrer" className={LINK}>
+            Self-host it
+          </a>
         </div>
       </div>
-
-      <div className="mx-auto mt-12 max-w-6xl px-6 text-xs text-subtle-foreground">
-        © {new Date().getFullYear()} Relay.
+      <div className="border-t border-(--l-border)">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-(--l-muted) sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p>© 2026 Relay · open source, built in the open</p>
+          <a href={REPO_URL} target="_blank" rel="noreferrer" className="inline-block py-2 font-mono hover:text-(--l-accent)">
+            {REPO_PATH}
+          </a>
+        </div>
       </div>
     </footer>
   );

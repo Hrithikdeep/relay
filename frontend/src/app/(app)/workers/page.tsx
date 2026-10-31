@@ -10,6 +10,7 @@ import { RegisterWorkerDialog } from "@/components/workers/RegisterWorkerDialog"
 export default function WorkersPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [activeJobCountById, setActiveJobCountById] = useState<Record<string, number>>({});
+  const [completedTodayById, setCompletedTodayById] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -42,8 +43,8 @@ export default function WorkersPage() {
     };
   }, [refreshTick]);
 
-  // GET /workers (list) doesn't include activeJobCount - only GET /workers/:id
-  // does - so it's fetched per worker, in parallel, once the list is known.
+  // GET /workers (list) doesn't include activeJobCount/completedToday - only
+  // GET /workers/:id does - so it's fetched per worker, in parallel, once the list is known.
   useEffect(() => {
     if (workers.length === 0) return;
     let cancelled = false;
@@ -54,9 +55,14 @@ export default function WorkersPage() {
         setActiveJobCountById(
           Object.fromEntries(details.map((d) => [d.id, d.activeJobCount]))
         );
+        setCompletedTodayById(
+          Object.fromEntries(details.map((d) => [d.id, d.completedToday]))
+        );
       })
       .catch(() => {
-        if (!cancelled) setActiveJobCountById({});
+        if (cancelled) return;
+        setActiveJobCountById({});
+        setCompletedTodayById({});
       });
 
     return () => {
@@ -179,6 +185,7 @@ export default function WorkersPage() {
               key={worker.id}
               worker={worker}
               activeJobCount={activeJobCountById[worker.id]}
+              completedToday={completedTodayById[worker.id]}
               onPing={() => handlePing(worker)}
               onRemove={() => handleRemove(worker)}
               pinging={pingingId === worker.id}

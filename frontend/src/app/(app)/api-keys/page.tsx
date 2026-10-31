@@ -8,11 +8,14 @@ import { formatCompactNumber, formatDateTime, formatRelativeTime } from "@/lib/f
 import { CreateApiKeyDialog } from "@/components/apikeys/CreateApiKeyDialog";
 import { CodeBlock } from "@/components/docs/CodeBlock";
 
+// Same base URL the app's own API client uses (lib/api.ts).
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 type QuickStartTab = "node" | "python" | "go" | "ruby";
 
 const QUICK_START_TABS: { key: QuickStartTab; label: string; soon?: boolean }[] = [
   { key: "node", label: "Node.js" },
-  { key: "python", label: "Python", soon: true },
+  { key: "python", label: "Python" },
   { key: "go", label: "Go", soon: true },
   { key: "ruby", label: "Ruby", soon: true },
 ];
@@ -220,8 +223,8 @@ export default function ApiKeysPage() {
           <div className="flex flex-col gap-3">
             <CodeBlock
               label="npm"
-              code={`# The Relay SDK doesn't exist yet - use the REST API directly with any
-# HTTP client until it ships.
+              code={`# @relay/sdk is built in this repo but not yet published to npm - use the
+# REST API directly with any HTTP client until it is.
 npm install axios`}
             />
             <CodeBlock
@@ -229,17 +232,52 @@ npm install axios`}
               code={`const axios = require("axios");
 
 const client = axios.create({
-  baseURL: "http://localhost:3001/v1",
+  baseURL: "${API_BASE}/v1",
   headers: { "x-api-key": process.env.RELAY_API_KEY },
 });
 
-const { data: job } = await client.post("/jobs", {
-  queueId: "<queue-id>",
-  name: "send-welcome-email",
-  payload: { to: "user@example.com" },
-});
+async function main() {
+  const { data: job } = await client.post("/jobs", {
+    queueId: "<queue-id>",
+    name: "send-welcome-email",
+    payload: { to: "user@example.com" },
+  });
 
-console.log(job.id, job.status);`}
+  console.log(job.id, job.status);
+}
+
+main().catch(console.error);`}
+            />
+          </div>
+        )}
+
+        {quickStartTab === "python" && (
+          <div className="flex flex-col gap-3">
+            <CodeBlock
+              label="pip"
+              code={`# Call the REST API directly - there is no Python SDK.
+pip install requests`}
+            />
+            <CodeBlock
+              label="main.py"
+              code={`import os
+import requests
+
+session = requests.Session()
+session.headers["x-api-key"] = os.environ["RELAY_API_KEY"]
+
+res = session.post(
+    "${API_BASE}/v1/jobs",
+    json={
+        "queueId": "<queue-id>",
+        "name": "send-welcome-email",
+        "payload": {"to": "user@example.com"},
+    },
+)
+res.raise_for_status()
+job = res.json()
+
+print(job["id"], job["status"])`}
             />
           </div>
         )}

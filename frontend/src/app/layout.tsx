@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/components/theme/ThemeProvider";
@@ -17,12 +18,19 @@ export const metadata: Metadata = {
 // "/" can render standalone instead of inheriting the app shell.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${geistSans.variable} antialiased`} suppressHydrationWarning>
-      <body>
-        {/* Runs before hydration so the stored theme applies with no flash. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <ThemeProvider>{children}</ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/dashboard"
+    >
+      <html lang="en" className={`${geistSans.variable} antialiased`} suppressHydrationWarning>
+        <body>
+          {/* Runs before hydration so the stored theme applies with no flash. */}
+          <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+          <ThemeProvider>{children}</ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

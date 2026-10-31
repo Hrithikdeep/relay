@@ -6,8 +6,17 @@
 // here rather than @ai-sdk/react's useChat. See backend/src/api/routes/aiChat.ts
 // for the exact protocol this parses.
 
+import { getAuthToken } from "./authToken";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "relay_test_key_123";
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
 
 export interface ToolApprovalRequestEvent {
   conversationId: string;
@@ -103,7 +112,7 @@ export async function sendChatMessage(
   try {
     const response = await fetch(`${API_BASE}/v1/ai/chat`, {
       method: "POST",
-      headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(body),
       signal,
     });
@@ -122,7 +131,7 @@ export async function confirmChatTool(
   try {
     const response = await fetch(`${API_BASE}/v1/ai/chat/confirm`, {
       method: "POST",
-      headers: { "x-api-key": API_KEY, "Content-Type": "application/json" },
+      headers: await authHeaders(),
       body: JSON.stringify(body),
       signal,
     });

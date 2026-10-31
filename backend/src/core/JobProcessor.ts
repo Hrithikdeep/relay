@@ -5,6 +5,7 @@ import { prisma } from '../database';
 import { triggerWebhooks } from '../services/WebhookService';
 import { advanceWorkflowForJob } from './WorkflowEngine';
 import { logger } from '../utils/logger';
+import { redactPaths } from '../utils/redact';
 
 export type JobHandler = (payload: unknown, bullJob: BullJob) => Promise<unknown>;
 
@@ -22,7 +23,9 @@ async function defaultHandler(payload: unknown, jobName: string): Promise<unknow
   return { received: payload };
 }
 
-export async function processJob(bullJob: BullJob): Promise<unknown> {
+export type ResolveWorkerId = (workspaceId: string) => Promise<string>;
+
+export async function processJob(bullJob: BullJob, resolveWorkerId?: ResolveWorkerId): Promise<unknown> {
   const jobId = bullJob.id;
 
   if (!jobId) {
@@ -53,11 +56,16 @@ export async function processJob(bullJob: BullJob): Promise<unknown> {
   }
 
   if (job.queue.workspace.aiJobClassificationEnabled) {
-    classifyJob(job.name, job.payload)
+    classifyJob(job.name, job.payload, undefined, job.queue.workspaceId)
       .then(async (classification) => {
         await prisma.job.update({
           where: { id: jobId },
-          data: { aiClassification: classification as unknown as Prisma.InputJsonValue },
+          data: {
+            aiClassification: classification as unknown as Prisma.InputJsonValue,
+            // A confidence of 0 is the stored fallback (AI off, capped or
+            // errored), not a classification that actually happened.
+            aiClassifiedAt: classification.confidence > 0 ? new Date() : null,
+          },
         });
 
         logger.info(
@@ -76,19 +84,29 @@ export async function processJob(bullJob: BullJob): Promise<unknown> {
   const startedAt = new Date();
   const attempt = job.attempts + 1;
 
+  let workerId = job.workerId;
+  if (resolveWorkerId) {
+    try {
+      workerId = await resolveWorkerId(job.queue.workspaceId);
+    } catch (workerError) {
+      logger.error(`Could not resolve worker for job ${jobId}:`, workerError);
+    }
+  }
+
   await prisma.job.update({
     where: { id: jobId },
     data: {
       status: 'ACTIVE',
       attempts: attempt,
       startedAt,
+      workerId,
     },
   });
 
   const executionLog = await prisma.jobExecutionLog.create({
     data: {
       jobId,
-      workerId: job.workerId,
+      workerId,
       attempt,
       status: 'STARTED',
       startedAt,
@@ -135,8 +153,11 @@ export async function processJob(bullJob: BullJob): Promise<unknown> {
     return result;
   } catch (error) {
     const finishedAt = new Date();
-    const message = error instanceof Error ? error.message : String(error);
-    const stackTrace = error instanceof Error ? error.stack : undefined;
+    // Redacted once, here, so the stored job/log rows, API responses, webhook
+    // payloads and the text sent to the AI analyzer never carry the server's
+    // filesystem paths.
+    const message = redactPaths(error instanceof Error ? error.message : String(error));
+    const stackTrace = error instanceof Error && error.stack ? redactPaths(error.stack) : undefined;
     const isFinalAttempt = attempt >= job.maxAttempts;
 
     const updatedJob = await prisma.job.update({
@@ -171,6 +192,10 @@ export async function processJob(bullJob: BullJob): Promise<unknown> {
           job.queue.workspaceId,
           job.queueId
         );
+
+        if (analysis.confidence > 0) {
+          await prisma.job.update({ where: { id: jobId }, data: { aiAnalyzedAt: new Date() } });
+        }
 
         const autoFix = await applyAutoFix(jobId, analysis);
 

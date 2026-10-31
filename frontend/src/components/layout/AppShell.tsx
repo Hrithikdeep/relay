@@ -14,10 +14,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
+    // Phones and small tablets start with the narrow icon rail so pages get
+    // the room; an explicit choice (either way) is always respected.
+    const smallScreen = window.matchMedia('(max-width: 1023px)').matches;
     try {
-      setCollapsed(window.localStorage.getItem(COLLAPSED_STORAGE_KEY) === 'true');
+      const stored = window.localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      setCollapsed(stored === null ? smallScreen : stored === 'true');
     } catch {
-      // localStorage unavailable - fall back to the expanded default.
+      setCollapsed(smallScreen);
     }
   }, []);
 
@@ -44,7 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             }`}
           >
             <TopBar />
-            <main className="mx-auto w-full max-w-[1600px] flex-1 px-8 py-6">{children}</main>
+            <main className="mx-auto w-full max-w-[1600px] min-w-0 flex-1 px-4 py-6 sm:px-8">{children}</main>
           </div>
           <AiChatPanel />
           <AiChatTrigger />

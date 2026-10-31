@@ -15,11 +15,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { JobStatus, JobWithRelations, Queue } from "@/lib/types";
+import type { JobErrorAnalysis, JobStatus, JobWithRelations, Queue } from "@/lib/types";
 import { formatDateTime, formatDuration } from "@/lib/format";
 import { StatusBadge } from "@/components/jobs/StatusBadge";
 import { JsonViewer } from "@/components/JsonViewer";
-import { ExecutionTimeline } from "@/components/jobs/ExecutionTimeline";
+import { ExecutionTimeline, buildAiTimelineEvents } from "@/components/jobs/ExecutionTimeline";
 import { ExecutionLogsTable } from "@/components/jobs/ExecutionLogsTable";
 import { AiAnalysisPanel } from "@/components/jobs/AiAnalysisPanel";
 import { JobTypeStats } from "@/components/jobs/JobTypeStats";
@@ -56,6 +56,8 @@ function JobDetailPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
+  const [analysis, setAnalysis] = useState<JobErrorAnalysis | null>(null);
+
   const [queues, setQueues] = useState<Queue[]>([]);
   const [workerName, setWorkerName] = useState<string | null>(null);
 
@@ -88,6 +90,26 @@ function JobDetailPageContent() {
       cancelled = true;
     };
   }, [id, refreshTick]);
+
+  // Only a job that has an error can have an error analysis; best-effort,
+  // the panel just shows no analysis if this fails.
+  const jobError = job?.error ?? null;
+  const analysisKey = job ? `${job.id}:${job.updatedAt}` : null;
+  useEffect(() => {
+    if (!analysisKey || !jobError) return;
+    let cancelled = false;
+    api
+      .getJobAnalysis(id)
+      .then((res) => {
+        if (!cancelled) setAnalysis(res);
+      })
+      .catch(() => {
+        if (!cancelled) setAnalysis(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, analysisKey, jobError]);
 
   useEffect(() => {
     api
@@ -359,7 +381,7 @@ function JobDetailPageContent() {
         <div className="flex flex-col gap-4 lg:col-span-2">
           <div className="rounded-lg border border-border bg-card p-4">
             <p className="mb-3 text-sm font-medium text-foreground">Execution timeline</p>
-            <ExecutionTimeline logs={job.executionLogs} />
+            <ExecutionTimeline logs={job.executionLogs} aiEvents={buildAiTimelineEvents(job, analysis)} />
           </div>
 
           <div className="rounded-lg border border-border bg-card p-4">
@@ -369,7 +391,7 @@ function JobDetailPageContent() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <AiAnalysisPanel classification={job.aiClassification} />
+          <AiAnalysisPanel classification={job.aiClassification} analysis={analysis} jobFailed={!!job.error} />
           <JobTypeStats jobName={job.name} />
           <RelatedJobsPanel queueId={job.queueId} excludeJobId={job.id} />
         </div>

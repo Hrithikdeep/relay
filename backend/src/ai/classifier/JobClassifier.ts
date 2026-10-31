@@ -2,6 +2,7 @@ import { PromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
 import { config } from '../../config/env';
 import { logger } from '../../utils/logger';
+import { reserveAiCall } from '../usage';
 
 export type JobCategory =
   | 'email'
@@ -94,7 +95,8 @@ function parseClassificationResponse(raw: string): JobClassification {
 export async function classifyJob(
   jobName: string,
   jobPayload: unknown,
-  description?: string
+  description?: string,
+  workspaceId?: string
 ): Promise<JobClassification> {
   if (!config.openai.apiKey) {
     logger.info(`Skipping AI classification for "${jobName}" - no OpenAI API key configured`);
@@ -102,6 +104,10 @@ export async function classifyJob(
   }
 
   try {
+    if (workspaceId && !(await reserveAiCall(workspaceId))) {
+      return DEFAULT_CLASSIFICATION;
+    }
+
     const model = new ChatOpenAI({
       apiKey: config.openai.apiKey,
       model: config.openai.model,

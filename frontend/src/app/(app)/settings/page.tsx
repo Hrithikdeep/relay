@@ -374,6 +374,8 @@ export default function SettingsPage() {
             </p>
           )}
 
+          <AiUsageCard usage={workspace.aiUsage} />
+
           <AiToggleRow
             title="AI Job Classification"
             description="Automatically classifies each job's category, risk, and priority using an LLM when it starts processing."
@@ -417,6 +419,44 @@ export default function SettingsPage() {
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+function AiUsageCard({ usage }: { usage: Workspace["aiUsage"] | undefined }) {
+  if (!usage) return null;
+
+  const pct = usage.limit > 0 ? Math.min(100, Math.round((usage.used / usage.limit) * 100)) : 0;
+  const barClass = usage.used >= usage.limit ? "bg-danger" : pct >= 80 ? "bg-warning" : "bg-accent";
+  const resets = new Date(usage.resetsAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="text-sm font-medium text-foreground">Usage</p>
+        <p className="text-sm tabular-nums text-foreground">
+          {usage.used} / {usage.limit}
+          <span className="ml-1.5 text-xs text-muted-foreground">AI calls used this month</span>
+        </p>
+      </div>
+      <div
+        className="mt-3 h-2 w-full overflow-hidden rounded-full bg-background"
+        role="progressbar"
+        aria-valuenow={usage.used}
+        aria-valuemin={0}
+        aria-valuemax={usage.limit}
+        aria-label="AI calls used this month"
+      >
+        <div className={`h-full rounded-full ${barClass}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Counts job classification, error analysis and chat turns. Resets monthly (UTC) - next reset {resets}.
+        At the limit, AI features pause and jobs keep running.
+      </p>
     </div>
   );
 }

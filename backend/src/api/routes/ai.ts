@@ -5,11 +5,14 @@ import { prisma } from '../../database';
 import { logger } from '../../utils/logger';
 import { naturalLanguageJobSchema } from '../../utils/validators';
 import { BadRequestError, NotFoundError } from '../../utils/errors';
-import { authenticate } from '../middleware/auth';
+import { startOfTodayInTimeZone } from '../../utils/dayStart';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticateAny);
+router.use(workspaceRateLimit);
 
 const KEYWORD_TO_QUEUE: Array<{ keyword: string; queueName: string }> = [
   { keyword: 'email', queueName: 'emails' },
@@ -56,7 +59,22 @@ router.get('/insights', async (req, res, next) => {
   try {
     const workspaceId = req.workspace!.id;
 
-    const [totalJobs, failedJobs, completedJobs, errorPatternsLearned, durationAgg] = await Promise.all([
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      select: { timezone: true },
+    });
+    const todayStart = startOfTodayInTimeZone(workspace.timezone);
+
+    const [
+      totalJobs,
+      failedJobs,
+      completedJobs,
+      errorPatternsLearned,
+      durationAgg,
+      classifiedToday,
+      patternsToday,
+      predictionsToday,
+    ] = await Promise.all([
       prisma.job.count({ where: { queue: { workspaceId } } }),
       prisma.job.count({ where: { queue: { workspaceId }, status: 'FAILED' } }),
       prisma.job.count({ where: { queue: { workspaceId }, status: 'COMPLETED' } }),
@@ -65,11 +83,26 @@ router.get('/insights', async (req, res, next) => {
         where: { status: 'SUCCEEDED', job: { queue: { workspaceId } } },
         _avg: { durationMs: true },
       }),
+      // Jobs created today that got a real classification. A fallback
+      // classification (AI off, capped or errored) is stored with confidence 0.
+      prisma.job.count({
+        where: {
+          queue: { workspaceId },
+          createdAt: { gte: todayStart },
+          aiClassification: { path: ['confidence'], gt: 0 },
+        },
+      }),
+      prisma.aiErrorPattern.count({ where: { workspaceId, updatedAt: { gte: todayStart } } }),
+      prisma.jobPrediction.count({
+        where: { createdAt: { gte: todayStart }, job: { queue: { workspaceId } } },
+      }),
     ]);
 
     const terminalJobs = completedJobs + failedJobs;
     const successRate = terminalJobs > 0 ? completedJobs / terminalJobs : 1;
-    const avgDurationMs = Math.round(durationAgg._avg.durationMs ?? 0);
+    // null (not 0) when there are no successful runs yet, so the UI can say so.
+    const avgDurationMs =
+      durationAgg._avg.durationMs === null ? null : Math.round(durationAgg._avg.durationMs);
     const healthScore = Math.round(successRate * 100);
 
     res.status(200).json({
@@ -80,6 +113,7 @@ router.get('/insights', async (req, res, next) => {
         successRate: Number(successRate.toFixed(4)),
         avgDurationMs,
         errorPatternsLearned,
+        aiActionsToday: classifiedToday + patternsToday + predictionsToday,
       },
     });
   } catch (error) {

@@ -12,13 +12,14 @@ const STATUS_STYLES: Record<WorkerStatus, { label: string; dot: string; text: st
 interface WorkerCardProps {
   worker: Worker;
   activeJobCount: number | undefined;
+  completedToday: number | undefined;
   onPing: () => void;
   onRemove: () => void;
   pinging: boolean;
   removing: boolean;
 }
 
-export function WorkerCard({ worker, activeJobCount, onPing, onRemove, pinging, removing }: WorkerCardProps) {
+export function WorkerCard({ worker, activeJobCount, completedToday, onPing, onRemove, pinging, removing }: WorkerCardProps) {
   const style = STATUS_STYLES[worker.status];
 
   return (
@@ -49,17 +50,16 @@ export function WorkerCard({ worker, activeJobCount, onPing, onRemove, pinging, 
           </p>
         </div>
         <div>
+          <p className="text-xs text-subtle-foreground">Completed today</p>
+          <p className="tabular-nums text-foreground">
+            {completedToday === undefined ? "…" : completedToday}
+          </p>
+        </div>
+        <div className="col-span-2">
           <p className="text-xs text-subtle-foreground">Heartbeat</p>
           <p className="text-foreground">{formatRelativeTime(worker.lastHeartbeatAt)}</p>
         </div>
       </div>
-
-      {activeJobCount === 0 && (
-        <p className="text-xs text-subtle-foreground">
-          Job-level worker assignment isn&apos;t tracked by the processing pipeline yet, so this
-          reads 0 even while the worker is online.
-        </p>
-      )}
 
       <div className="flex gap-2">
         <button

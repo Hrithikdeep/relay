@@ -29,6 +29,7 @@ import { getAiActionLabel } from "@/lib/format";
 import { StatusBadge } from "@/components/jobs/StatusBadge";
 import { CircularGauge } from "@/components/CircularGauge";
 import { PredictionCard } from "@/components/insights/PredictionCard";
+import { ErrorPatternCard } from "@/components/insights/ErrorPatternCard";
 
 const CHART_WINDOW_HOURS = 24;
 const MAX_CHART_PAGES = 5;
@@ -85,6 +86,11 @@ export default function DashboardPage() {
   const [predictions, setPredictions] = useState<Prediction[] | null>(null);
   const [predictionsLoading, setPredictionsLoading] = useState(true);
   const [predictionsError, setPredictionsError] = useState<string | null>(null);
+
+  // Error patterns (previewed alongside predictions in the AI insights panel)
+  const [errorPatterns, setErrorPatterns] = useState<AiErrorPattern[] | null>(null);
+  const [patternsLoading, setPatternsLoading] = useState(true);
+  const [patternsError, setPatternsError] = useState<string | null>(null);
 
   const loadInsights = useCallback(() => {
     setInsightsLoading(true);
@@ -144,13 +150,35 @@ export default function DashboardPage() {
       .finally(() => setPredictionsLoading(false));
   }, []);
 
+  const loadErrorPatterns = useCallback(() => {
+    setPatternsLoading(true);
+    setPatternsError(null);
+    api
+      .getErrorPatterns()
+      .then((res) => setErrorPatterns(res.data))
+      .catch((err) => setPatternsError(err instanceof Error ? err.message : "Failed to load error patterns."))
+      .finally(() => setPatternsLoading(false));
+  }, []);
+
   useEffect(() => {
     loadInsights();
     loadWorkers();
     loadJobs();
     loadQueues();
     loadPredictions();
-  }, [loadInsights, loadWorkers, loadJobs, loadQueues, loadPredictions]);
+    loadErrorPatterns();
+  }, [loadInsights, loadWorkers, loadJobs, loadQueues, loadPredictions, loadErrorPatterns]);
+
+  // Highest-confidence predictions first, then error patterns newest-first
+  // (the API already orders them by last seen).
+  const previewItems = [
+    ...[...(predictions ?? [])]
+      .sort((a, b) => b.confidence - a.confidence)
+      .map((prediction, i) => ({ key: `prediction-${prediction.type}-${i}`, prediction, pattern: null })),
+    ...(errorPatterns ?? []).map((pattern) => ({ key: `pattern-${pattern.id}`, prediction: null, pattern })),
+  ].slice(0, 3);
+  const previewLoading = predictionsLoading || patternsLoading;
+  const previewError = predictionsError ?? patternsError;
 
   const onlineWorkers = workers?.filter((w) => w.status === "ONLINE").length ?? 0;
 
@@ -164,7 +192,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Top stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={ListChecks}
           label="Total Jobs"
@@ -189,6 +217,14 @@ export default function DashboardPage() {
           loading={workersLoading}
           error={workersError}
           onRetry={loadWorkers}
+        />
+        <StatCard
+          icon={Sparkles}
+          label="AI Actions Today"
+          value={insights?.stats.aiActionsToday}
+          loading={insightsLoading}
+          error={insightsError}
+          onRetry={loadInsights}
         />
       </div>
 
@@ -298,16 +334,22 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {predictionsLoading && (
+          {previewLoading && (
             <div className="flex flex-col gap-2">
               <div className="h-20 animate-pulse rounded-md bg-background" />
               <div className="h-20 animate-pulse rounded-md bg-background" />
             </div>
           )}
-          {!predictionsLoading && predictionsError && (
-            <ErrorPanel message={predictionsError} onRetry={loadPredictions} />
+          {!previewLoading && previewError && (
+            <ErrorPanel
+              message={previewError}
+              onRetry={() => {
+                loadPredictions();
+                loadErrorPatterns();
+              }}
+            />
           )}
-          {!predictionsLoading && !predictionsError && predictions && predictions.length === 0 && (
+          {!previewLoading && !previewError && previewItems.length === 0 && (
             <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border py-6 text-center">
               <Sparkles className="h-5 w-5 text-subtle-foreground" />
               <p className="max-w-55 text-xs text-muted-foreground">
@@ -315,11 +357,15 @@ export default function DashboardPage() {
               </p>
             </div>
           )}
-          {!predictionsLoading && !predictionsError && predictions && predictions.length > 0 && (
+          {!previewLoading && !previewError && previewItems.length > 0 && (
             <div className="flex flex-col gap-3">
-              {predictions.slice(0, 2).map((prediction, i) => (
-                <PredictionCard key={`${prediction.type}-${i}`} prediction={prediction} />
-              ))}
+              {previewItems.map((item) =>
+                item.prediction ? (
+                  <PredictionCard key={item.key} prediction={item.prediction} />
+                ) : (
+                  <ErrorPatternCard key={item.key} pattern={item.pattern} />
+                )
+              )}
             </div>
           )}
         </div>

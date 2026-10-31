@@ -62,6 +62,9 @@ model Workspace {
   aiErrorAnalysisEnabled      Boolean @default(true) @map("ai_error_analysis_enabled")
   aiPredictiveMonitoringEnabled Boolean @default(true) @map("ai_predictive_monitoring_enabled")
 
+  aiCallsUsed        Int      @default(0) @map("ai_calls_used")
+  aiCallsPeriodStart DateTime @default(now()) @map("ai_calls_period_start")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -72,6 +75,7 @@ model Workspace {
   apiKeys         ApiKey[]
   conversations   Conversation[]
   workflows       Workflow[]
+  users           User[]
 
   @@map("workspaces")
 }
@@ -126,6 +130,8 @@ model Job {
   result           Json?
   error            String?
   aiClassification Json?     @map("ai_classification")
+  aiClassifiedAt   DateTime? @map("ai_classified_at")
+  aiAnalyzedAt     DateTime? @map("ai_analyzed_at")
   scheduledAt      DateTime? @map("scheduled_at")
   startedAt        DateTime? @map("started_at")
   completedAt      DateTime? @map("completed_at")
@@ -353,4 +359,17 @@ model WaitlistEntry {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("waitlist_entries")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique @map("clerk_id")
+  email       String   @unique
+  workspaceId String?  @map("workspace_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@map("users")
 }

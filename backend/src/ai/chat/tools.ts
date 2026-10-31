@@ -154,13 +154,17 @@ export function buildChatTools(workspaceId: string): ToolSet {
         ]);
         const terminalJobs = completedJobs + failedJobs;
         const successRate = terminalJobs > 0 ? completedJobs / terminalJobs : 1;
+        const avgDurationMs = durationAgg._avg.durationMs === null ? null : Math.round(durationAgg._avg.durationMs);
         return {
           healthScore: Math.round(successRate * 100),
           stats: {
             totalJobs,
             failedJobs,
             successRate: Number(successRate.toFixed(4)),
-            avgDurationMs: Math.round(durationAgg._avg.durationMs ?? 0),
+            avgDurationMs,
+            ...(avgDurationMs === null && {
+              avgDurationNote: 'No completed jobs yet, so there is no average duration to report.',
+            }),
             errorPatternsLearned,
           },
         };

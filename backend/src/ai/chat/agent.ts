@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { prisma } from '../../database';
 import { config } from '../../config/env';
 import { logger } from '../../utils/logger';
+import { AI_LIMIT_MESSAGE, reserveAiCall } from '../usage';
 import { buildChatTools, DESTRUCTIVE_TOOL_NAMES } from './tools';
 
 const openaiProvider = createOpenAI({ apiKey: config.openai.apiKey });
@@ -178,6 +179,11 @@ async function runAndStream(
   conversationId: string,
   messages: ModelMessage[]
 ): Promise<RunTurnResult> {
+  if (!(await reserveAiCall(workspaceId))) {
+    sseWrite(res, 'error', { message: AI_LIMIT_MESSAGE });
+    return { conversationId, pendingApproval: null, usage: {} };
+  }
+
   const tools = buildChatTools(workspaceId);
 
   // Explicit <ToolSet> type argument: without it, tsc infers TOOLS from the

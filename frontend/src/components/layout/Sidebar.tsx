@@ -1,7 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useClerk } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation';
+import { api } from '@/lib/api';
+import type { Me } from '@/lib/types';
 import {
   LayoutDashboard,
   ListChecks,
@@ -90,6 +94,15 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const pathname = usePathname();
+  const { signOut } = useClerk();
+  const [me, setMe] = useState<Me | null>(null);
+
+  useEffect(() => {
+    api.getMe().then(setMe).catch(() => setMe(null));
+  }, []);
+
+  const workspaceName = me?.workspaceName ?? me?.email ?? '';
+  const initials = (me?.workspaceName ?? me?.email ?? '').slice(0, 2).toUpperCase();
 
   return (
     <aside
@@ -134,19 +147,20 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
         }`}
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card text-xs font-medium text-foreground">
-          RW
+          {initials}
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">Relay Workspace</p>
-            <p className="truncate text-xs text-subtle-foreground">Development</p>
+            <p className="truncate text-sm font-medium text-foreground">{workspaceName}</p>
+            <p className="truncate text-xs text-subtle-foreground">{me?.email ?? ''}</p>
           </div>
         )}
       </div>
 
-      <form action="/api/logout" method="POST" className="border-t border-border">
+      <div className="border-t border-border">
         <button
-          type="submit"
+          type="button"
+          onClick={() => signOut({ redirectUrl: '/' })}
           title="Log out"
           className={`flex w-full items-center gap-2 px-4 py-3 text-sm text-muted-foreground hover:bg-card hover:text-foreground ${
             collapsed ? 'justify-center px-0' : ''
@@ -155,7 +169,7 @@ export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
           {!collapsed && <span>Log out</span>}
         </button>
-      </form>
+      </div>
 
       <button
         type="button"

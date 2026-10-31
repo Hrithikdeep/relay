@@ -18,6 +18,7 @@ import { errorHandler } from './api/middleware/errorHandler';
 import { healthRouter } from './api/routes/health';
 import { jobsRouter } from './api/routes/jobs';
 import { logsRouter } from './api/routes/logs';
+import { meRouter } from './api/routes/me';
 import { queuesRouter } from './api/routes/queues';
 import { webhooksRouter } from './api/routes/webhooks';
 import { workersRouter } from './api/routes/workers';
@@ -30,6 +31,12 @@ import { logger } from './utils/logger';
 import { startAllWorkers, stopAllWorkers } from './workers/WorkerPool';
 
 const app = express();
+
+// The backend runs behind Railway's reverse proxy (one hop). Without this,
+// req.ip is the proxy's address for every visitor, so the per-IP rate limiter
+// would throttle all users together; with it, Express reads the real client
+// IP from the proxy's X-Forwarded-For header.
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors());
@@ -53,6 +60,7 @@ apiRouter.use('/api-keys', apiKeysRouter);
 apiRouter.use('/logs', logsRouter);
 apiRouter.use('/workflows', workflowsRouter);
 apiRouter.use('/waitlist', waitlistRouter);
+apiRouter.use('/me', meRouter);
 
 app.use(healthRouter);
 app.use(`/${env.API_VERSION}`, apiRouter);
@@ -67,14 +75,7 @@ async function start(): Promise<void> {
   await connectRedis();
   await startAllWorkers();
 
-  let predictionScheduler: NodeJS.Timeout | undefined;
-  const workspace = await prisma.workspace.findFirst();
-
-  if (workspace) {
-    predictionScheduler = startPredictionScheduler(workspace.id);
-  } else {
-    logger.warn('No workspace found - skipping prediction scheduler startup');
-  }
+  const predictionScheduler = startPredictionScheduler();
 
   const server = app.listen(env.PORT, () => {
     logger.info(`Relay backend listening on port ${env.PORT}`);

@@ -6,6 +6,8 @@ import { getOrCreateQueue } from '../../core/QueueManager';
 import { config } from '../../config/env';
 import { prisma } from '../../database';
 import { logger } from '../../utils/logger';
+import { redactPaths } from '../../utils/redact';
+import { reserveAiCall } from '../usage';
 
 export interface ErrorAnalysis {
   rootCause: string;
@@ -115,6 +117,10 @@ export async function analyzeError(
   }
 
   try {
+    if (!(await reserveAiCall(workspaceId))) {
+      return DEFAULT_ANALYSIS;
+    }
+
     const model = new ChatOpenAI({
       apiKey: config.openai.apiKey,
       model: config.openai.model,
@@ -123,10 +129,12 @@ export async function analyzeError(
 
     const chain = analysisPrompt.pipe(model);
 
+    // Callers already pass redacted text; this keeps the prompt safe for any
+    // that don't.
     const response = await chain.invoke({
       jobName,
-      errorMessage,
-      stackTrace: stackTrace ?? 'not available',
+      errorMessage: redactPaths(errorMessage),
+      stackTrace: stackTrace ? redactPaths(stackTrace) : 'not available',
       attemptNumber,
     });
 

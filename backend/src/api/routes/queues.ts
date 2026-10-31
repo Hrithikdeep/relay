@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { pauseQueue, resumeQueue } from '../../core/QueueManager';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { startWorker } from '../../workers/WorkerPool';
+import { logger } from '../../utils/logger';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { createQueueSchema } from '../../utils/validators';
 import { ConflictError, NotFoundError } from '../../utils/errors';
 
 export const queuesRouter = Router();
 
-queuesRouter.use(authenticate);
+queuesRouter.use(authenticateAny);
+queuesRouter.use(workspaceRateLimit);
 
 queuesRouter.post('/', async (req, res, next) => {
   try {
@@ -29,6 +33,15 @@ queuesRouter.post('/', async (req, res, next) => {
         concurrency: input.concurrency,
       },
     });
+
+    // Workers are otherwise only started for queue names that exist at boot,
+    // so without this a job on a new queue name would sit PENDING until the
+    // backend restarts. startWorker is a no-op if the name already has one.
+    try {
+      await startWorker(queue.name, queue.workspaceId, queue.concurrency);
+    } catch (workerError) {
+      logger.error(`Failed to start worker for new queue "${queue.name}":`, workerError);
+    }
 
     res.status(201).json(queue);
   } catch (error) {

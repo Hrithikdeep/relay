@@ -1,12 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { listLogsQuerySchema } from '../../utils/validators';
 
 export const logsRouter = Router();
 
-logsRouter.use(authenticate);
+logsRouter.use(authenticateAny);
+logsRouter.use(workspaceRateLimit);
 
 // job+queue names come from a single Prisma `include` (one SQL query with
 // joins), not a per-row lookup - see the report for confirmation.

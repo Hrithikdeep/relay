@@ -13,6 +13,7 @@ import {
 import { api } from "@/lib/api";
 import type { ExecutionLogStatus, ExecutionLogWithJob, PaginatedResponse, Queue } from "@/lib/types";
 import { formatLogTimestamp } from "@/lib/format";
+import { redactPaths } from "@/lib/redact";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { LogStatusBadge } from "@/components/logs/LogStatusBadge";
 import { Pagination } from "@/components/Pagination";
@@ -321,7 +322,7 @@ export default function LogsPage() {
                       <tr className="border-b border-border bg-background last:border-0">
                         <td colSpan={7} className="px-4 py-3">
                           <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs text-danger">
-                            {log.stackTrace}
+                            {redactPaths(log.stackTrace)}
                           </pre>
                         </td>
                       </tr>

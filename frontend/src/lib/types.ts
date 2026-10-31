@@ -47,6 +47,23 @@ export interface JobClassification {
   reasoning: string;
 }
 
+// GET /v1/jobs/:id/analysis - what the backend actually persists about a
+// failed job's error analysis (AiErrorPattern). recommendation/isTransient
+// are never stored, so they don't appear here.
+export interface JobErrorAnalysis {
+  analyzed: boolean;
+  pattern: {
+    errorType: string;
+    rootCause: string;
+    confidence: number;
+    suggestedFix: string | null;
+    occurrenceCount: number;
+    lastSeenAt: string;
+    isResolved: boolean;
+  } | null;
+  similarJobs: number;
+}
+
 export interface Job {
   id: string;
   queueId: string;
@@ -60,6 +77,8 @@ export interface Job {
   result: Record<string, unknown> | null;
   error: string | null;
   aiClassification: JobClassification | null;
+  aiClassifiedAt: string | null;
+  aiAnalyzedAt: string | null;
   scheduledAt: string | null;
   startedAt: string | null;
   completedAt: string | null;
@@ -156,6 +175,7 @@ export interface Worker {
 // Only GET /workers/:id returns this extra field; GET /workers (list) does not.
 export interface WorkerWithActiveJobCount extends Worker {
   activeJobCount: number;
+  completedToday: number;
 }
 
 export interface Webhook {
@@ -229,6 +249,13 @@ export interface Prediction {
 
 // GET/PATCH /v1/workspace - never includes apiKey (see the select in
 // backend/src/api/routes/workspace.ts).
+export interface Me {
+  userId: string;
+  email: string;
+  workspaceId: string | null;
+  workspaceName: string | null;
+}
+
 export interface Workspace {
   id: string;
   name: string | null;
@@ -239,6 +266,8 @@ export interface Workspace {
   aiJobClassificationEnabled: boolean;
   aiErrorAnalysisEnabled: boolean;
   aiPredictiveMonitoringEnabled: boolean;
+  // Calls used this UTC month against the monthly cap (read from the backend).
+  aiUsage: { used: number; limit: number; resetsAt: string };
   createdAt: string;
 }
 
@@ -248,8 +277,9 @@ export interface Insights {
     totalJobs: number;
     failedJobs: number;
     successRate: number;
-    avgDurationMs: number;
+    avgDurationMs: number | null;
     errorPatternsLearned: number;
+    aiActionsToday: number;
   };
 }
 

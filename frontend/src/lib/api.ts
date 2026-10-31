@@ -13,9 +13,11 @@ import type {
   CreateWorkflowInput,
   ExecutionLogWithJob,
   HealthResponse,
+  Me,
   Insights,
   Job,
   JobWithRelations,
+  JobErrorAnalysis,
   ListJobsQuery,
   ListLogsQuery,
   ListResponse,
@@ -37,15 +39,21 @@ import type {
   WaitlistEntry,
   WaitlistCountResponse,
 } from './types';
+import { getAuthToken } from './authToken';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'relay_test_key_123';
 
 // /health is mounted before the /v1 prefix on the backend; everything else
 // lives under /v1.
 const client = axios.create({
   baseURL: `${API_BASE}/v1`,
-  headers: { 'x-api-key': API_KEY, 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json' },
+});
+
+client.interceptors.request.use(async (config) => {
+  const token = await getAuthToken();
+  if (token) config.headers.set('Authorization', `Bearer ${token}`);
+  return config;
 });
 
 export const api = {
@@ -61,6 +69,8 @@ export const api = {
   // GET /v1/jobs/:id returns the raw Job plus nested executionLogs/predictions.
   getJob: (id: string): Promise<JobWithRelations> =>
     client.get(`/jobs/${id}`).then((r) => r.data),
+  getJobAnalysis: (id: string): Promise<JobErrorAnalysis> =>
+    client.get(`/jobs/${id}/analysis`).then((r) => r.data),
   // POST /v1/jobs returns the raw created Job (201), not wrapped.
   createJob: (data: CreateJobInput): Promise<Job> =>
     client.post('/jobs', data).then((r) => r.data),
@@ -118,6 +128,9 @@ export const api = {
     client.get('/ai/conversations').then((r) => r.data),
   getConversation: (id: string): Promise<ConversationDetail> =>
     client.get(`/ai/conversations/${id}`).then((r) => r.data),
+
+  // ---- Current user ----
+  getMe: (): Promise<Me> => client.get('/me').then((r) => r.data),
 
   // ---- Workspace ----
   getWorkspace: (): Promise<Workspace> => client.get('/workspace').then((r) => r.data),

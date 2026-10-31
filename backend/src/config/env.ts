@@ -16,6 +16,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-5.6-luna'),
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
+  CLERK_SECRET_KEY: z.string().optional(),
   API_VERSION: z.string().default('v1'),
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
 });

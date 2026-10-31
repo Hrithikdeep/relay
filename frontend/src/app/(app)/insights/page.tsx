@@ -124,7 +124,11 @@ export default function InsightsPage() {
                 value={`${Math.round(insights.stats.successRate * 100)}%`}
                 tone="success"
               />
-              <StatCard icon={Timer} label="Avg Duration" value={formatMs(insights.stats.avgDurationMs)} />
+              <StatCard
+                icon={Timer}
+                label="Avg Duration"
+                value={insights.stats.avgDurationMs === null ? "No data yet" : formatMs(insights.stats.avgDurationMs)}
+              />
               <StatCard icon={Sparkles} label="Error Patterns Learned" value={insights.stats.errorPatternsLearned} tone="ai" />
             </div>
           </div>

@@ -1,13 +1,15 @@
 import crypto from 'crypto';
 import { Router } from 'express';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { createWebhookSchema } from '../../utils/validators';
 import { NotFoundError } from '../../utils/errors';
 
 export const webhooksRouter = Router();
 
-webhooksRouter.use(authenticate);
+webhooksRouter.use(authenticateAny);
+webhooksRouter.use(workspaceRateLimit);
 
 webhooksRouter.post('/', async (req, res, next) => {
   try {

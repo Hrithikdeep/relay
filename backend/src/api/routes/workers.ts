@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { createWorkerSchema, workerHeartbeatSchema } from '../../utils/validators';
 import { NotFoundError } from '../../utils/errors';
+import { startOfTodayInTimeZone } from '../../utils/dayStart';
 
 export const workersRouter = Router();
 
-workersRouter.use(authenticate);
+workersRouter.use(authenticateAny);
+workersRouter.use(workspaceRateLimit);
 
 workersRouter.post('/', async (req, res, next) => {
   try {
@@ -53,11 +56,28 @@ workersRouter.get('/:id', async (req, res, next) => {
       throw new NotFoundError('Worker not found');
     }
 
-    const activeJobCount = await prisma.job.count({
-      where: { workerId: worker.id, status: 'ACTIVE' },
+    const workspaceId = req.workspace!.id;
+    const workspace = await prisma.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      select: { timezone: true },
     });
+    const todayStart = startOfTodayInTimeZone(workspace.timezone);
 
-    res.status(200).json({ ...worker, activeJobCount });
+    const [activeJobCount, completedToday] = await Promise.all([
+      prisma.job.count({
+        where: { workerId: worker.id, status: 'ACTIVE', queue: { workspaceId } },
+      }),
+      prisma.job.count({
+        where: {
+          workerId: worker.id,
+          status: 'COMPLETED',
+          completedAt: { gte: todayStart },
+          queue: { workspaceId },
+        },
+      }),
+    ]);
+
+    res.status(200).json({ ...worker, activeJobCount, completedToday });
   } catch (error) {
     next(error);
   }

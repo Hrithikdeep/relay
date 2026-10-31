@@ -26,6 +26,7 @@
   "type": "commonjs",
   "dependencies": {
     "@ai-sdk/openai": "^4.0.66",
+    "@clerk/backend": "^3.26.4",
     "@langchain/core": "^1.2.11",
     "@langchain/openai": "^1.5.8",
     "@prisma/client": "^5.14.0",

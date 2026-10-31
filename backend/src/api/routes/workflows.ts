@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { createWorkflowSchema } from '../../utils/validators';
 import { BadRequestError, NotFoundError } from '../../utils/errors';
 import { startWorkflowRun } from '../../core/WorkflowEngine';
 
 export const workflowsRouter = Router();
 
-workflowsRouter.use(authenticate);
+workflowsRouter.use(authenticateAny);
+workflowsRouter.use(workspaceRateLimit);
 
 workflowsRouter.post('/', async (req, res, next) => {
   try {

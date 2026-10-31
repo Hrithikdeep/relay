@@ -2,13 +2,15 @@ import crypto from 'crypto';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { createApiKeySchema } from '../../utils/validators';
 import { NotFoundError } from '../../utils/errors';
 
 export const apiKeysRouter = Router();
 
-apiKeysRouter.use(authenticate);
+apiKeysRouter.use(authenticateAny);
+apiKeysRouter.use(workspaceRateLimit);
 
 const KEY_PREFIX_LENGTH = 20;
 const BCRYPT_ROUNDS = 10;

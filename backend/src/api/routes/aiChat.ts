@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../../database';
-import { authenticate } from '../middleware/auth';
+import { authenticateAny } from '../middleware/auth';
+import { workspaceRateLimit } from '../middleware/rateLimit';
 import { chatConfirmSchema, chatMessageSchema } from '../../utils/validators';
 import { NotFoundError } from '../../utils/errors';
 import { confirmChatTool, startChatTurn } from '../../ai/chat/agent';
@@ -8,7 +9,8 @@ import { logger } from '../../utils/logger';
 
 export const aiChatRouter = Router();
 
-aiChatRouter.use(authenticate);
+aiChatRouter.use(authenticateAny);
+aiChatRouter.use(workspaceRateLimit);
 
 function startSse(res: import('express').Response): void {
   res.writeHead(200, {
